@@ -378,43 +378,47 @@ void SohMenu::AddMenuSettings() {
                 .Max(8)
                 .DefaultValue(1));
 #endif
-#ifdef __APPLE__
-    // macOS fork HDR experiment (Metal renderer). 16-bit keeps the same colors with more precision (less banding);
-    // Auto HDR then lets the brightest parts of the game image go past SDR white on displays with HDR headroom.
-    // Only the Metal renderer implements these. While another renderer is chosen they are greyed out and
-    // switched off (so they never look on), and the player's choices are put back once Metal is chosen again.
-    static auto HdrDisableUnlessMetal = [](WidgetInfo& info) {
+    // HDR upscaling. 16-bit keeps the same colors with more precision (less banding) on Metal, OpenGL and DirectX 11.
+    // Auto HDR then lets the brightest parts of the game image go past SDR white on displays with HDR headroom; it
+    // needs HDR output, which Metal and DirectX 11 have. While a renderer without it is chosen, Auto HDR is greyed
+    // out and switched off (so it never looks on), and the player's choice is put back once one with it is chosen.
+    static auto AutoHdrDisableUnlessHdrOutput = [](WidgetInfo& info) {
         bool parked = CVarGetInteger("gHdr.Internal.Parked", 0);
-        if (mSohMenu->disabledMap.at(DISABLE_FOR_NOT_METAL).active) {
-            info.activeDisables.push_back(DISABLE_FOR_NOT_METAL);
+        if (mSohMenu->disabledMap.at(DISABLE_FOR_NO_HDR_OUTPUT).active) {
+            info.activeDisables.push_back(DISABLE_FOR_NO_HDR_OUTPUT);
             if (!parked) {
-                CVarSetInteger("gHdr.Internal.ParkedHighPrecision", CVarGetInteger("gHdr.HighPrecision", 0));
+                CVarSetInteger("gHdr.Internal.ParkedHighPrecision", 0);
                 CVarSetInteger("gHdr.Internal.ParkedAutoHdr", CVarGetInteger("gHdr.AutoHdr", 0));
-                CVarSetInteger("gHdr.HighPrecision", 0);
                 CVarSetInteger("gHdr.AutoHdr", 0);
                 CVarSetInteger("gHdr.Internal.Parked", 1);
                 Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
             }
         } else if (parked) {
-            CVarSetInteger("gHdr.HighPrecision", CVarGetInteger("gHdr.Internal.ParkedHighPrecision", 0));
+            // Builds that offered these on Metal only also parked 16-bit color; put that back too.
+            if (CVarGetInteger("gHdr.Internal.ParkedHighPrecision", 0)) {
+                CVarSetInteger("gHdr.HighPrecision", 1);
+            }
             CVarSetInteger("gHdr.AutoHdr", CVarGetInteger("gHdr.Internal.ParkedAutoHdr", 0));
             CVarSetInteger("gHdr.Internal.Parked", 0);
             Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
         }
     };
-    AddWidget(path, "16-bit Color + HDR Output", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, "16-bit Color", WIDGET_CVAR_CHECKBOX)
         .CVar("gHdr.HighPrecision")
         .RaceDisable(false)
-        .PreFunc(HdrDisableUnlessMetal)
+        .PreFunc([](WidgetInfo& info) {
+            info.name = mSohMenu->disabledMap.at(DISABLE_FOR_NO_HDR_OUTPUT).active ? "16-bit Color"
+                                                                                  : "16-bit Color + HDR Output";
+        })
         .Options(CheckboxOptions().Tooltip(
-            "Draws the game and the window in 16-bit color instead of 8-bit, which smooths banding in dark scenes, "
-            "fog and sky, and enables HDR output. Colors are otherwise unchanged."));
+            "Draws the game in 16-bit color instead of 8-bit, which smooths banding in dark scenes, fog and sky. "
+            "Colors are otherwise unchanged. On the Metal and DirectX 11 renderers it also turns on HDR output."));
     AddWidget(path, "Auto HDR", WIDGET_CVAR_CHECKBOX)
         .CVar("gHdr.AutoHdr")
         .RaceDisable(false)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = !CVarGetInteger("gHdr.HighPrecision", 0);
-            HdrDisableUnlessMetal(info);
+            AutoHdrDisableUnlessHdrOutput(info);
         })
         .Options(CheckboxOptions().Tooltip(
             "Converts the game's standard picture to HDR: darker colors stay as they are and the brightest ones (sun, "
@@ -424,7 +428,7 @@ void SohMenu::AddMenuSettings() {
         .RaceDisable(false)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = !CVarGetInteger("gHdr.HighPrecision", 0) || !CVarGetInteger("gHdr.AutoHdr", 0);
-            HdrDisableUnlessMetal(info);
+            AutoHdrDisableUnlessHdrOutput(info);
         })
         .Options(FloatSliderOptions()
                      .Tooltip("How bright pure white may get, as a multiple of normal white. Capped automatically at "
@@ -439,7 +443,7 @@ void SohMenu::AddMenuSettings() {
         .RaceDisable(false)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = !CVarGetInteger("gHdr.HighPrecision", 0) || !CVarGetInteger("gHdr.AutoHdr", 0);
-            HdrDisableUnlessMetal(info);
+            AutoHdrDisableUnlessHdrOutput(info);
         })
         .Options(FloatSliderOptions()
                      .Tooltip("Brightness level where the HDR boost begins. Higher keeps more of the picture "
@@ -454,7 +458,7 @@ void SohMenu::AddMenuSettings() {
         .RaceDisable(false)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = !CVarGetInteger("gHdr.HighPrecision", 0) || !CVarGetInteger("gHdr.AutoHdr", 0);
-            HdrDisableUnlessMetal(info);
+            AutoHdrDisableUnlessHdrOutput(info);
         })
         .Options(FloatSliderOptions()
                      .Tooltip("How sharply the boost ramps up. Higher keeps the boost to only the very brightest "
@@ -467,13 +471,12 @@ void SohMenu::AddMenuSettings() {
     AddWidget(path, "Display HDR headroom", WIDGET_TEXT)
         .PreFunc([](WidgetInfo& info) {
             info.isHidden = !CVarGetInteger("gHdr.HighPrecision", 0) ||
-                            mSohMenu->disabledMap.at(DISABLE_FOR_NOT_METAL).active;
+                            mSohMenu->disabledMap.at(DISABLE_FOR_NO_HDR_OUTPUT).active;
             char text[64];
             snprintf(text, sizeof(text), "Display HDR headroom right now: %.1fx",
                      CVarGetFloat("gHdr.Internal.Headroom", 1.0f));
             info.name = text;
         });
-#endif
     auto fps = CVarGetInteger(CVAR_SETTING("InterpolationFPS"), 20);
     const char* fpsFormat = fps == 20 ? "Original (%d)" : "%d";
     AddWidget(path, "Current FPS", WIDGET_CVAR_SLIDER_INT)

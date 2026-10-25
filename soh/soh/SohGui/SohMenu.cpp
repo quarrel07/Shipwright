@@ -133,18 +133,19 @@ void SohMenu::InitElement() {
                       Fast::WindowBackend::FAST3D_DXGI_DX11;
            },
             "Not Available on DirectX" } },
-        { DISABLE_FOR_NOT_METAL,
+        { DISABLE_FOR_NO_HDR_OUTPUT,
           { [](disabledInfo& info) -> bool {
                // Follow the renderer picked in the menu (saved right away, applied on restart), not the
-               // running one, so the HDR options grey out as soon as another renderer is chosen.
+               // running one, so Auto HDR greys out as soon as a renderer without HDR output is chosen.
                auto window = Ship::Context::GetRawInstance()->GetWindow();
                int32_t backend = Ship::Context::GetRawInstance()->GetConfig()->GetInt("Window.Backend.Id", -1);
                if (!window->IsAvailableWindowBackend(backend)) {
                    backend = window->GetWindowBackend();
                }
-               return backend != Fast::WindowBackend::FAST3D_SDL_METAL;
+               return backend != Fast::WindowBackend::FAST3D_SDL_METAL &&
+                      backend != Fast::WindowBackend::FAST3D_DXGI_DX11;
            },
-            "Available Only on Metal" } },
+            "Available Only on Metal and DirectX 11" } },
         { DISABLE_FOR_MATCH_REFRESH_RATE_ON,
           { [](disabledInfo& info) -> bool { return CVarGetInteger(CVAR_SETTING("MatchRefreshRate"), 0); },
             "Match Refresh Rate is Enabled" } },
