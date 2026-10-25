@@ -23,7 +23,7 @@ from upstream `9.3.1` — you still provide your own *Ocarina of Time* ROM.
 ## Download & run
 
 1. Grab `ShipOfHarkinian-v9.3.1-macOS-arm64.zip` from
-   [Releases](https://github.com/quarrel07/Shipwright-macOS/releases) and unzip it.
+   [Releases](https://github.com/quarrel07/Shipwright/releases) and unzip it.
 2. The app is ad-hoc signed, so macOS will warn that it can't verify it. Double-click the app, click **Done** on the warning, then open **System Settings → Privacy & Security**, scroll down to Security, and click **Open Anyway**. One-time thing per download.
 3. On first run the game asks for a supported **Ocarina of Time ROM** (`.z64`). Verify your dump
    against the [supported hashes](docs/supportedHashes.json). It extracts `oot.o2r` into
@@ -58,7 +58,7 @@ No copyrighted assets are bundled. You must supply your own legally-dumped ROM.
 
 ```bash
 brew install cmake ninja sdl2 sdl3 sdl2_net libpng glew libzip nlohmann-json tinyxml2 spdlog libogg libvorbis opusfile boost
-git clone --recurse-submodules https://github.com/quarrel07/Shipwright-macOS.git
+git clone --recurse-submodules https://github.com/quarrel07/Shipwright.git
 cd Shipwright-macOS
 cmake --no-warn-unused-cli -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE=Release
 cmake --build build-cmake          # produces build-cmake/soh/Ship of Harkinian.app
